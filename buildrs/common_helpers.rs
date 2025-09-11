@@ -1,10 +1,11 @@
-use std::{collections::BTreeSet, env, path::PathBuf};
+use std::path::PathBuf;
+use crate::get_out_path;
 
 pub fn split_type_name(type_name: &str) -> (&str, Option<&str>, &str, &str) {
     let mut split = type_name.split('_');
     let prefix = split
         .next()
-        .unwrap_or_else(|| panic!("Fist '_' not found in type name: {type_name}"));
+        .unwrap_or_else(|| panic!("First '_' not found in type name: {type_name}"));
     let cat = split
         .next()
         .unwrap_or_else(|| panic!("Second '_' not found in type name: {type_name}"));
@@ -19,33 +20,11 @@ pub fn split_type_name(type_name: &str) -> (&str, Option<&str>, &str, &str) {
     (prefix, category, semantic, postfix)
 }
 
-pub fn features() -> BTreeSet<&'static str> {
-    zenoh::FEATURES.split(" zenoh/").collect()
-}
-
 pub fn test_feature(feature: &str) -> bool {
     zenoh::FEATURES.contains(format!(" zenoh/{feature}").as_str())
 }
 
-// See: https://github.com/rust-lang/cargo/issues/9661
-// See: https://github.com/rust-lang/cargo/issues/545
+// Dump everything to the source directory and we'll cherry pick what we need aftern
 pub fn cargo_target_dir() -> PathBuf {
-    // OUT_DIR is a path to the directory where the build script writes its output.
-    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR should be set"));
-    // PROFILE is the profile that the build script is being run for. This will be one of "debug" or "release".
-    let profile = env::var("PROFILE").expect("PROFILE should be set");
-
-    let mut target_dir = None;
-    let mut out_dir_path = out_dir.as_path();
-    while let Some(parent) = out_dir_path.parent() {
-        if parent.ends_with(&profile) {
-            target_dir = Some(parent);
-            break;
-        }
-        out_dir_path = parent;
-    }
-
-    target_dir
-        .expect("OUT_DIR should be a child of a PROFILE directory")
-        .to_path_buf()
+    get_out_path()
 }
