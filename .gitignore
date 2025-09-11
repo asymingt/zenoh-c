@@ -78,3 +78,7 @@ include/zenoh_opaque.h
 CMakeFiles/
 debug/
 release/
+
+# Bazel
+bazel-*
+*.bazel.lock
