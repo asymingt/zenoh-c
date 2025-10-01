@@ -122,7 +122,7 @@ fn produce_opaque_types_data() -> (String, PathBuf) {
         feature_args.push(feature);
     }
 
-    let mut command = std::process::Command::new("cargo");
+    let mut command = std::process::Command::new(std::env::var("CARGO").unwrap());
     command
         .arg("build")
         .args(feature_args)

@@ -10,10 +10,10 @@ use phf::phf_map;
 use regex::Regex;
 
 use super::{
-    common_helpers::{cargo_target_dir, split_type_name, test_feature},
+    common_helpers::{split_type_name, test_feature},
     splitguide::{split_bindings, FuncArg, FunctionSignature},
 };
-use crate::get_out_rs_path;
+use crate::{get_build_rs_path, get_out_rs_path};
 
 const BUGGY_GENERATION_PATH: &str = "include/zenoh-gen-buggy.h";
 const GENERATION_PATH: &str = "include/zenoh-gen.h";
@@ -59,7 +59,7 @@ pub fn generate_c_headers() {
 
     fs_extra::copy_items(
         &["include"],
-        cargo_target_dir(),
+        get_build_rs_path(),
         &fs_extra::dir::CopyOptions::default().overwrite(true),
     )
     .expect("include should be copied to CARGO_TARGET_DIR");
@@ -319,11 +319,11 @@ fn configure() {
         .truncate(true)
         .append(false)
         .create(true)
-        .open("include/zenoh_configure.h")
+        .open("./include/zenoh_configure.h")
         .unwrap();
     file.lock_exclusive().unwrap();
 
-    let version = std::fs::read_to_string("version.txt").unwrap();
+    let version = std::fs::read_to_string(get_build_rs_path().join("./version.txt")).unwrap();
     let version = version.trim();
     let version_parts: Vec<&str> = version.split('.').collect();
     if version_parts.len() < 3 {

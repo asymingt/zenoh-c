@@ -20,3 +20,26 @@ module(
 
 bazel_dep(name = "rules_cc", version = "0.2.4")
 bazel_dep(name = "rules_foreign_cc", version = "0.15.0")
+bazel_dep(name = "rules_rust", version = "0.64.0")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    versions = [ "1.85.0" ],
+)
+
+crate_opaque_types = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate_opaque_types.from_cargo(
+    name = "crate_opaque_types",
+    cargo_lockfile = "build-resources/opaque-types/Cargo.lock",
+    manifests = ["build-resources/opaque-types/Cargo.toml"],
+)
+use_repo(crate_opaque_types, "crate_opaque_types")
+
+crate_zenoh = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate_zenoh.from_cargo(
+    name = "crate_zenoh",
+    cargo_lockfile = "Cargo.lock",
+    manifests = ["Cargo.toml"],
+)
+use_repo(crate_zenoh, "crate_zenoh")
