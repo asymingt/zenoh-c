@@ -8,7 +8,7 @@ use std::{
 use fs2::FileExt;
 
 use super::common_helpers::test_feature;
-use crate::get_build_rs_path;
+use crate::{get_build_rs_path, get_out_rs_path};
 
 const SPLITGUIDE_PATH: &str = "splitguide.yaml";
 const HEADER: &str = r"//
@@ -569,6 +569,7 @@ impl FunctionSignature {
 }
 
 pub fn split_bindings(genetation_path: impl AsRef<Path>) -> Result<Vec<PathBuf>, String> {
+    let include_path = get_out_rs_path().join("include");
     let bindings = std::fs::read_to_string(&genetation_path).unwrap();
     let split_guide = SplitGuide::from_yaml(get_build_rs_path().join(SPLITGUIDE_PATH));
     let mut files = split_guide
@@ -580,7 +581,7 @@ pub fn split_bindings(genetation_path: impl AsRef<Path>) -> Result<Vec<PathBuf>,
                 .truncate(true)
                 .append(false)
                 .create(true)
-                .open(PathBuf::from("include").join(path))
+                .open(include_path.join(path))
                 .unwrap();
             file.lock_exclusive().unwrap();
             file.set_len(0).unwrap();

@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 pub fn split_type_name(type_name: &str) -> (&str, Option<&str>, &str, &str) {
     let mut split = type_name.split('_');
     let prefix = split
@@ -17,10 +15,6 @@ pub fn split_type_name(type_name: &str) -> (&str, Option<&str>, &str, &str) {
     let prefix_cat_len = prefix.len() + 1 + category.map(|c| c.len() + 1).unwrap_or(0);
     let semantic = &type_name[prefix_cat_len..type_name.len() - postfix.len() - 1];
     (prefix, category, semantic, postfix)
-}
-
-pub fn features() -> BTreeSet<&'static str> {
-    zenoh::FEATURES.split(" zenoh/").collect()
 }
 
 pub fn test_feature(feature: &str) -> bool {

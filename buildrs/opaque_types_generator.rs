@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use regex::Regex;
 
-use super::common_helpers::{features, split_type_name};
+use super::common_helpers::split_type_name;
 use crate::{get_build_rs_path, get_out_rs_path};
 
 pub fn generate_opaque_types() {
@@ -103,48 +103,52 @@ impl Drop for {type_name} {{
 }
 
 fn produce_opaque_types_data() -> (String, PathBuf) {
-    let target = std::env::var("TARGET").unwrap();
-    let linker = std::env::var("RUSTC_LINKER").unwrap_or_default();
-    let manifest_path = get_build_rs_path().join("./build-resources/opaque-types/Cargo.toml");
-    let output_file_path = get_out_rs_path().join("./build_resources_opaque_types.txt");
-    let out_file = std::fs::File::create(output_file_path.clone()).unwrap();
-    let stdio = std::process::Stdio::from(out_file);
+    // let target = std::env::var("TARGET").unwrap();
+    // let linker = std::env::var("RUSTC_LINKER").unwrap_or_default();
+    // let manifest_path = get_build_rs_path().join("./build-resources/opaque-types/Cargo.toml");
+    // let output_file_path = get_out_rs_path().join("./build_resources_opaque_types.txt");
+    // let out_file = std::fs::File::create(output_file_path.clone()).unwrap();
+    // let stdio = std::process::Stdio::from(out_file);
 
-    let mut linker_args = Vec::<String>::new();
-    if !linker.is_empty() {
-        linker_args.push("--config".to_string());
-        linker_args.push(format!("target.{target}.linker=\"{linker}\""));
-    }
-    #[allow(unused_mut)]
-    let mut feature_args: Vec<&str> = vec!["-F", "panic"];
-    for feature in features().iter().filter(|f| !f.is_empty()) {
-        feature_args.push("-F");
-        feature_args.push(feature);
-    }
+    // let mut linker_args = Vec::<String>::new();
+    // if !linker.is_empty() {
+    //     linker_args.push("--config".to_string());
+    //     linker_args.push(format!("target.{target}.linker=\"{linker}\""));
+    // }
+    // #[allow(unused_mut)]
+    // let mut feature_args: Vec<&str> = vec!["-F", "panic"];
+    // for feature in features().iter().filter(|f| !f.is_empty()) {
+    //     feature_args.push("-F");
+    //     feature_args.push(feature);
+    // }
 
-    let mut command = std::process::Command::new(std::env::var("CARGO").unwrap());
-    command
-        .arg("build")
-        .args(feature_args)
-        .args(linker_args)
-        .arg("--target")
-        .arg(target)
-        .arg("--manifest-path")
-        .arg(manifest_path)
-        .arg("--target-dir")
-        .arg(match std::env::var("OPAQUE_TYPES_BUILD_DIR") {
-            Ok(opaque_types_build_dir) => {
-                println!(
-                    "cargo:warning=OPAQUE_TYPES_BUILD_DIR = {}",
-                    opaque_types_build_dir
-                );
-                opaque_types_build_dir.into()
-            }
-            Err(_) => get_out_rs_path().join("./build_resources/opaque_types"),
-        });
+    // let mut command = std::process::Command::new(std::env::var("CARGO").unwrap());
+    // command
+    //     .arg("build")
+    //     .args(feature_args)
+    //     .args(linker_args)
+    //     .arg("--target")
+    //     .arg(target)
+    //     .arg("--manifest-path")
+    //     .arg(manifest_path)
+    //     .arg("--target-dir")
+    //     .arg(match std::env::var("OPAQUE_TYPES_BUILD_DIR") {
+    //         Ok(opaque_types_build_dir) => {
+    //             println!(
+    //                 "cargo:warning=OPAQUE_TYPES_BUILD_DIR = {}",
+    //                 opaque_types_build_dir
+    //             );
+    //             opaque_types_build_dir.into()
+    //         }
+    //         Err(_) => get_out_rs_path().join("./build_resources/opaque_types"),
+    //     });
 
-    let command_str = format!("{:?}", command);
-    let _ = command.stderr(stdio).output().unwrap();
+    // let command_str = format!("{:?}", command);
+    // let _ = command.stderr(stdio).output().unwrap();
+
+    let command_str = "CACHED".to_string();
+    let output_file_path = get_build_rs_path().join("./build_resources_opaque_types.txt");
+
     (command_str, output_file_path)
 }
 
