@@ -1,0 +1,144 @@
+# Copyright 2025 Open Source Robotics Foundation, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@crate//:defs.bzl", "all_crate_deps")
+load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+cargo_build_script(
+    name = "build_script",
+    srcs = glob([
+        "build.rs",
+        "buildrs/**",
+    ]),
+    data = glob([
+        "build-resources/opaque-types/**",
+        "cbindgen.toml",
+        "Cargo.toml",
+        "include/zenoh.h",
+        "include/zenoh_memory.h",
+        "include/zenoh_constants.h",
+        "splitguide.yaml",
+        "version.txt",
+        "src/**",
+    ]),
+    crate_root = "build.rs",
+    crate_features = [
+        "zenoh-ext/unstable",
+        "zenoh/auth_pubkey",
+        "zenoh/auth_usrpwd",
+        "zenoh/shared-memory",
+        "zenoh/transport_compression",
+        "zenoh/transport_multilink",
+        "zenoh/transport_quic",
+        "zenoh/transport_serial",
+        "zenoh/transport_tcp",
+        "zenoh/transport_tls",
+        "zenoh/transport_udp",
+        "zenoh/transport_unixpipe",
+        "zenoh/transport_unixsock-stream",
+        "zenoh/transport_vsock",
+        "zenoh/transport_ws",
+        "zenoh/unstable",
+    ],
+    deps = all_crate_deps(build = True, normal = True),
+)
+
+# Extract files produced by the cargo build
+
+filegroup(
+    name = "output_dir",
+    output_group = "out_dir",
+    srcs = [":build_script"],
+)
+
+[
+    genrule(
+        name = "extract_{}".format(file.replace("/", "_").replace(".", "_")),
+        srcs = [":output_dir"],
+        outs = [file],
+        cmd = "cp $(location :output_dir)/{} $@".format(file),
+    )
+    for file in [
+        "src/opaque_types/mod.rs",
+        "include/zenoh_commons.h",
+        "include/zenoh_concrete.h",
+        "include/zenoh_configure.h",
+        "include/zenoh_macros.h",
+        "include/zenoh_opaque.h",
+    ]
+]
+
+# Build the zeno library
+
+rust_library(
+    name = "zenohc",
+    srcs = glob(["src/**/*.rs"]) + ["src/opaque_types/mod.rs"],
+    deps = all_crate_deps(),
+)
+
+cc_library(
+    name = "zenoh-c",
+    hdrs = [
+        "include/zenoh_commons.h",
+        "include/zenoh_concrete.h",
+        "include/zenoh_configure.h",
+        "include/zenoh_constants.h",
+        "include/zenoh_macros.h",
+        "include/zenoh_memory.h",
+        "include/zenoh_opaque.h",
+        "include/zenoh.h",
+    ],
+    deps = [":zenohc"],
+    includes = ["include"],
+    defines = [
+        "Z_FEATURE_SHARED_MEMORY",
+        "Z_FEATURE_UNSTABLE_API",
+    ],
+    copts = ["-Wunused-variable"],
+)
+
+[
+    cc_test(
+        name = 'test_' + name.removesuffix('_test'),
+        srcs = [       
+            "tests/z_int_helpers.h",
+            "tests/" + name + ".c"
+        ],
+        copts = [
+            "-Wno-unused-variable",
+            "-Wno-missing-braces"
+        ],
+        deps = [":zenoh-c"],
+        timeout = "short"
+    )
+    for name in [
+        "z_api_config_test",
+        "z_api_constants",
+        "z_api_double_drop_test",
+        "z_api_drop_options",
+        "z_api_encoding_test",
+        "z_api_keyexpr_drop_test",
+        "z_api_keyexpr_test",
+        "z_api_liveliness",
+        "z_api_null_drop_test",
+        "z_api_payload_test",
+        "z_api_session_test",
+        #"z_api_shm_test",
+        "z_api_unitinialized_check",
+    ]
+]

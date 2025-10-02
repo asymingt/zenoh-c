@@ -10,7 +10,7 @@ use phf::phf_map;
 use regex::Regex;
 
 use super::{
-    common_helpers::{cargo_target_dir, split_type_name, test_feature},
+    common_helpers::{split_type_name, test_feature},
     splitguide::{split_bindings, FuncArg, FunctionSignature},
 };
 
@@ -35,27 +35,33 @@ static RUST_TO_C_FEATURES: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 pub fn generate_c_headers() {
-    cbindgen::generate(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+    let crate_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let opaque_types = out_dir.join("src/opaque_types/mod.rs");
+    let buggy_generation_path = out_dir.join(BUGGY_GENERATION_PATH).to_str().unwrap().to_string();
+    let generation_path = out_dir.join(GENERATION_PATH).to_str().unwrap().to_string();
+    let preprocess_path = out_dir.join(PREPROCESS_PATH).to_str().unwrap().to_string();
+    let zenoh_macros_h = out_dir.join("include/zenoh_macros.h").to_str().unwrap().to_string();
+    let config = cbindgen::Config::from_root_or_default(crate_dir.clone());
+
+    cbindgen::Builder::new()
+        .with_config(config)
+        .with_crate(crate_dir)
+        .with_src(opaque_types)
+        .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(BUGGY_GENERATION_PATH);
+        .write_to_file(&buggy_generation_path);
 
-    fix_cbindgen(BUGGY_GENERATION_PATH, GENERATION_PATH);
-    std::fs::remove_file(BUGGY_GENERATION_PATH).unwrap();
+    fix_cbindgen(&buggy_generation_path, &generation_path);
+    std::fs::remove_file(&buggy_generation_path).unwrap();
 
-    preprocess_header(GENERATION_PATH, PREPROCESS_PATH);
-    create_generics_header(PREPROCESS_PATH, "include/zenoh_macros.h");
-    std::fs::remove_file(PREPROCESS_PATH).unwrap();
+    preprocess_header(&generation_path, &preprocess_path);
+    create_generics_header(&preprocess_path, &zenoh_macros_h);
+    std::fs::remove_file(&preprocess_path).unwrap();
 
     configure();
-    let files = split_bindings(GENERATION_PATH).unwrap();
+    let files = split_bindings(generation_path).unwrap();
     text_replace(files.iter());
-
-    fs_extra::copy_items(
-        &["include"],
-        cargo_target_dir(),
-        &fs_extra::dir::CopyOptions::default().overwrite(true),
-    )
-    .expect("include should be copied to CARGO_TARGET_DIR");
 }
 
 fn fix_cbindgen(input: &str, output: &str) {
@@ -307,16 +313,18 @@ fn create_generics_header(path_in: &str, path_out: &str) {
 }
 
 fn configure() {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let mut file = std::fs::File::options()
         .write(true)
         .truncate(true)
         .append(false)
         .create(true)
-        .open("include/zenoh_configure.h")
+        .open(out_dir.join("include/zenoh_configure.h"))
         .unwrap();
     file.lock_exclusive().unwrap();
-
-    let version = std::fs::read_to_string("version.txt").unwrap();
+    let crate_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let version_txt = crate_dir.join("version.txt");
+    let version = std::fs::read_to_string(version_txt).unwrap();
     let version = version.trim();
     let version_parts: Vec<&str> = version.split('.').collect();
     if version_parts.len() < 3 {
@@ -360,8 +368,9 @@ fn configure() {
 }
 
 fn text_replace(files: impl Iterator<Item = impl AsRef<Path>>) {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     for name in files {
-        let path = PathBuf::from("include").join(name);
+        let path = out_dir.join("include").join(name);
 
         // Read content
         let mut file = std::fs::File::options()

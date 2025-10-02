@@ -3,14 +3,12 @@ use std::{collections::HashMap, path::PathBuf};
 use regex::Regex;
 
 use super::common_helpers::{features, split_type_name};
-use crate::get_build_rs_path;
 
 pub fn generate_opaque_types() {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let type_to_inner_field_name = HashMap::from([("z_id_t", "pub id")]);
-    let current_folder = get_build_rs_path();
     let path_in = produce_opaque_types_data();
-    let path_out = current_folder.join("./src/opaque_types/mod.rs");
-
+    let path_out = out_dir.join("src/opaque_types/mod.rs");
     let data_in = std::fs::read_to_string(path_in).unwrap();
     let mut data_out = String::new();
     let mut docs = get_opaque_type_docs();
@@ -71,15 +69,18 @@ impl Drop for {type_name} {{
         }
         data_out += &s;
     }
+    let _ = std::fs::create_dir_all(path_out.parent().unwrap());
     std::fs::write(path_out, data_out).unwrap();
 }
 
 fn produce_opaque_types_data() -> PathBuf {
+    let cargo = std::env::var("CARGO").unwrap();
     let target = std::env::var("TARGET").unwrap();
     let linker = std::env::var("RUSTC_LINKER").unwrap_or_default();
-    let current_folder = get_build_rs_path();
-    let manifest_path = current_folder.join("./build-resources/opaque-types/Cargo.toml");
-    let output_file_path = current_folder.join("./.build_resources_opaque_types.txt");
+    let crate_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let manifest_path = crate_dir.join("build-resources/opaque-types/Cargo.toml");
+    let output_file_path = out_dir.join(".build_resources_opaque_types.txt");
     let out_file = std::fs::File::create(output_file_path.clone()).unwrap();
     let stdio = std::process::Stdio::from(out_file);
 
@@ -95,7 +96,7 @@ fn produce_opaque_types_data() -> PathBuf {
         feature_args.push(feature);
     }
 
-    let _ = std::process::Command::new("cargo")
+    let _ = std::process::Command::new(cargo)
         .arg("build")
         .args(feature_args)
         .args(linker_args)
@@ -111,8 +112,8 @@ fn produce_opaque_types_data() -> PathBuf {
 }
 
 fn get_opaque_type_docs() -> HashMap<String, Vec<String>> {
-    let current_folder = get_build_rs_path();
-    let path_in = current_folder.join("./build-resources/opaque-types/src/lib.rs");
+    let crate_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let path_in = crate_dir.join("build-resources/opaque-types/src/lib.rs");
     let re = Regex::new(r"(?m)^get_opaque_type_data!\(\s*(.*)\s*,\s*(\w+)\s*(,)?\s*\);").unwrap();
     let mut comments = Vec::new();
     let mut opaque_lines = Vec::new();

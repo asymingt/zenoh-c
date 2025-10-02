@@ -568,8 +568,10 @@ impl FunctionSignature {
 }
 
 pub fn split_bindings(genetation_path: impl AsRef<Path>) -> Result<Vec<PathBuf>, String> {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let crate_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let bindings = std::fs::read_to_string(&genetation_path).unwrap();
-    let split_guide = SplitGuide::from_yaml(SPLITGUIDE_PATH);
+    let split_guide = SplitGuide::from_yaml(crate_dir.join(SPLITGUIDE_PATH));
     let mut files = split_guide
         .rules
         .iter()
@@ -579,7 +581,7 @@ pub fn split_bindings(genetation_path: impl AsRef<Path>) -> Result<Vec<PathBuf>,
                 .truncate(true)
                 .append(false)
                 .create(true)
-                .open(PathBuf::from("include").join(path))
+                .open(out_dir.join("include").join(path))
                 .unwrap();
             file.lock_exclusive().unwrap();
             file.set_len(0).unwrap();
