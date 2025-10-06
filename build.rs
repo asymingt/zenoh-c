@@ -1,9 +1,10 @@
 mod buildrs;
 
 pub fn get_build_rs_path() -> std::path::PathBuf {
+    let file_path = file!();
     let mut path_buf = std::path::PathBuf::new();
-    path_buf.push(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    path_buf
+    path_buf.push(file_path);
+    path_buf.parent().unwrap().to_path_buf()
 }
 
 fn main() {
