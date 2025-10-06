@@ -97,6 +97,7 @@ fn produce_opaque_types_data() -> PathBuf {
     }
 
     let _ = std::process::Command::new(cargo)
+        .current_dir(out_dir)
         .arg("build")
         .args(feature_args)
         .args(linker_args)
@@ -104,6 +105,7 @@ fn produce_opaque_types_data() -> PathBuf {
         .arg(target)
         .arg("--manifest-path")
         .arg(manifest_path)
+        .arg("--frozen")
         .stderr(stdio)
         .output()
         .unwrap();

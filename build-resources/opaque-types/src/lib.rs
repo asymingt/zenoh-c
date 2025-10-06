@@ -551,3 +551,5 @@ get_opaque_type_data!(Option<zenoh_ext::ZSerializer>, ze_owned_serializer_t);
 get_opaque_type_data!(zenoh_ext::ZSerializer, ze_loaned_serializer_t);
 /// @brief A Zenoh serializer.
 get_opaque_type_data!(zenoh_ext::ZDeserializer<'static>, ze_deserializer_t);
+
+fn main() {}

@@ -43,10 +43,12 @@ pub fn generate_c_headers() {
     let preprocess_path = out_dir.join(PREPROCESS_PATH).to_str().unwrap().to_string();
     let zenoh_macros_h = out_dir.join("include/zenoh_macros.h").to_str().unwrap().to_string();
     let config = cbindgen::Config::from_root_or_default(crate_dir.clone());
-
+    let lockfile = crate_dir.join("Cargo.lock");
+    
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
+        .with_lockfile(lockfile)
         .with_src(opaque_types)
         .generate()
         .expect("Unable to generate bindings")

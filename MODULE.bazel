@@ -21,17 +21,11 @@ module(
 bazel_dep(name = "rules_cc", version = "0.2.4")
 bazel_dep(name = "rules_rust", version = "0.64.0")
 
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2021",
-    versions = [ "1.85.0" ],
-)
-
-# The root manifest contains both the opaque types and the main crate.
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 crate.from_cargo(
     name = "crate",
-    cargo_lockfile = "Cargo.lock",
-    manifests = ["Cargo.toml"],
+    cargo_lockfile = "//:Cargo.lock",
+    manifests = ["//:Cargo.toml"],
+    skip_cargo_lockfile_overwrite = True,
 )
 use_repo(crate, "crate")
