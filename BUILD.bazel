@@ -16,9 +16,13 @@ load("@crate//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
 load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
 load("@rules_cc//cc:defs.bzl", "cc_test")
-#load(":rules.bzl", "multi_test", "cargo_build_stdout_capture")
+load(":rules.bzl", "rust_cbindgen")
 
 package(default_visibility = ["//visibility:public"])
+
+# These are the features wew want to request from the Zenoh build. Note
+# that these must match what is in the Cargo.toml file specified in
+# the MODULE.bazel file. 
 
 CRATE_FEATURES = [
     "panic",
@@ -39,6 +43,8 @@ CRATE_FEATURES = [
 
 # Invocation of the original "panic" based build, which will not work in
 # rules_rust because we can't expect an action failure as part of a build.
+# NOTE: this assumes that the host and target are the same. It will not
+# not work for the case where we are cross-compiling.
 
 cargo_build_script(
     name = "build_script",
@@ -60,11 +66,40 @@ rust_binary(
 )
 
 genrule(
-    name = "build_resources_opaque_types_txt",
-    srcs = [":opaque_types"], # The binary is an input to the genrule
-    outs = [".build_resources_opaque_types.txt"],      # The file where stdout will be captured
-    cmd = "$(location :opaque_types) > $(location .build_resources_opaque_types.txt)",
+    name = "build_src_opaque_types_mod_rs",
+    srcs = [":opaque_types"],
+    outs = ["src/opaque_types/mod.rs"],
+    cmd = "$(location :opaque_types) > $(location src/opaque_types/mod.rs)",
 )
+
+# Now, we run cbindgen to build the C bindings for Zenoh. Note that we don't
+# use the build.rs script because it calls cbindgen with insufficient for
+# the internal cargo call to be hermetic. So, we use our own set of rules
+# that were inspired by: https://github.com/bazelbuild/rules_rust/issues/381
+
+rust_binary(
+    name = "cbindgen",
+    srcs = ["@crate//:cbindgen__cbindgen"],
+    deps = all_crate_deps(build = True, normal = True),
+)
+
+rust_cbindgen(
+    name = "zenoh_cbindgen",
+    config = "cbindgen.toml",
+    srcs = glob(["Cargo.toml", "src/**/*.rs"]) + ["src/opaque_types/mod.rs"],
+    header = "include/zenoh-cpp.h",
+    deps = all_crate_deps(build = True, normal = True),
+)
+
+# Now, run the splitguide logic to partition the include/zenoh-cpp.h into a
+# few separate files, and fixes a couple of problems with the code.
+
+# cargo_build_script(
+#     name = "build_script",
+#     srcs = glob(["build-resources/opaque-types/src/lib.rs"]),
+#     crate_features = ["panic"] + CRATE_FEATURES,
+#     deps = all_crate_deps(build = True, normal = True),
+# )
 
 # cargo_build_script(
 #     name = "opaque_types",

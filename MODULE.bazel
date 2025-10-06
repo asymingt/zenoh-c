@@ -22,6 +22,7 @@ bazel_dep(name = "rules_cc", version = "0.2.4")
 bazel_dep(name = "rules_rust", version = "0.64.0")
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.annotation(crate = "cbindgen", gen_all_binaries = True)
 crate.from_cargo(
     name = "crate",
     cargo_lockfile = "//:Cargo.lock",
