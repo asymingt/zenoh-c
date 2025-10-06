@@ -8,7 +8,7 @@ pub fn get_build_rs_path() -> std::path::PathBuf {
 
 fn main() {
     buildrs::opaque_types_generator::generate_opaque_types();
-    //buildrs::cbindgen_generator::generate_c_headers();
+    buildrs::cbindgen_generator::generate_c_headers();
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=buildrs");
     println!("cargo:rerun-if-changed=src");

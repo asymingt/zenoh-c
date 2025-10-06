@@ -103,7 +103,6 @@ fn produce_opaque_types_data() -> PathBuf {
         .arg(target)
         .arg("--manifest-path")
         .arg(manifest_path)
-        .arg("--offline")
         .stderr(stdio)
         .output()
         .unwrap();

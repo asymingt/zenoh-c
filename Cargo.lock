@@ -4104,7 +4104,6 @@ dependencies = [
  "unwrap-infallible",
  "zenoh",
  "zenoh-ext",
- "zenoh-protocol",
  "zenoh-runtime",
  "zenoh-util",
 ]
