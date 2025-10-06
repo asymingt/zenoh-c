@@ -12,65 +12,113 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@crate//:defs.bzl", "all_crate_deps")
 load("@rules_cc//cc:defs.bzl", "cc_test")
-load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+load("@rules_rust//cargo:defs.bzl", "cargo_dep_env", "cargo_build_script")
+#load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
 
 package(default_visibility = ["//visibility:public"])
 
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"], exclude=[
-        # Platform dependent generated files
-        "include/zenoh_configure.h",
-        "include/zenoh_opaque.h",
-        # Build resources
-        ".build_resources/**",
-        "src/opaque_types/mod.rs",
-        # Bazel files
-        "BUILD.bazel",
-        "MODULE.bazel",
-        "MODULE.bazel.lock"]
-    ),
-)
-
-cmake(
-    name = "zenoh-c",
-    cache_entries = {
-        "ZENOHC_CARGO_FLAGS" : "--features=shared-memory zenoh/transport_serial",
-        "ZENOHC_BUILD_WITH_UNSTABLE_API" : "TRUE",
-    },
-    lib_source = ":srcs",
-    out_static_libs = ["libzenohc.a"],
-    out_include_dir = "include",
-)
-
-[
-    cc_test(
-        name = 'test_' + name.removesuffix('_test'),
-        srcs = [       
-            "tests/z_int_helpers.h",
-            "tests/" + name + ".c"
-        ],
-        copts = [
-            "-Wno-unused-variable",
-            "-Wno-missing-braces"
-        ],
-        deps = [":zenoh-c"],
-        timeout = "short"
-    )
-    for name in [
-        "z_api_config_test",
-        "z_api_constants",
-        "z_api_double_drop_test",
-        "z_api_drop_options",
-        "z_api_encoding_test",
-        "z_api_keyexpr_drop_test",
-        "z_api_keyexpr_test",
-        "z_api_liveliness",
-        "z_api_null_drop_test",
-        "z_api_payload_test",
-        "z_api_session_test",
-        "z_api_shm_test",
-        "z_api_unitinialized_check",
-    ]
+CRATE_FEATURES = [
+    "auth_pubkey",
+    "auth_usrpwd",
+    "transport_multilink",
+    "transport_compression",
+    "transport_quic",
+    "transport_serial",
+    "transport_tcp",
+    "transport_tls",
+    "transport_udp",
+    "transport_unixsock-stream",
+    "transport_ws",
+    "shared-memory",
+    "unstable"
 ]
+
+cargo_build_script(
+    name = "build_script",
+    srcs = glob(["**/*.rs"], exclude=["src/opaque_types/mod.rs"]),
+    data = glob(["**"],
+        exclude=[
+            # These are auto-generated header files.
+            "include/zenoh_commons.h",
+            "include/zenoh_concrete.h",
+            "include/zenoh_configure.h",
+            "include/zenoh_macros.h",
+            "include/zenoh_opaque.h",
+            # These are auto-generated rust files.
+            "src/opaque_types/mod.rs",
+            # Bazel files
+            "BUILD.bazel",
+            "MODULE.bazel",
+            "MODULE.bazel.lock"
+        ]
+    ),
+    rustc_env = {
+        "PROFILE": "debug"
+    },
+    crate_root = "build.rs",
+    crate_features = CRATE_FEATURES,
+    deps = all_crate_deps(build = True, normal = True),
+)
+
+create_dep_dir(
+    name = "dep_dir",
+)
+
+cargo_dep_env(
+    name = "set_dep_dir",
+    src = "set_dep_dir.env",
+    out_dir = "dep_dir",
+)
+
+
+# cmake(
+#     name = "zenoh-c",
+#     cache_entries = {
+#         "ZENOHC_CARGO_FLAGS" : "--features=shared-memory zenoh/transport_serial",
+#         "ZENOHC_BUILD_WITH_UNSTABLE_API" : "TRUE",
+#     },
+#     lib_source = ":srcs",
+#     out_static_libs = ["libzenohc.a"],
+#     out_include_dir = "include",
+#     env = {
+#         "CARGO": "$(location @rules_rust//tools/upstream_wrapper:cargo)",
+#         "RUSTC": "$(location @rules_rust//tools/upstream_wrapper:rustc)",
+#     },
+#     build_data = [
+#         "@rules_rust//tools/upstream_wrapper:rustc",
+#         "@rules_rust//tools/upstream_wrapper:cargo"
+#     ] + all_crate_deps(build = True, normal = True),
+# )
+
+# [
+#     cc_test(
+#         name = 'test_' + name.removesuffix('_test'),
+#         srcs = [       
+#             "tests/z_int_helpers.h",
+#             "tests/" + name + ".c"
+#         ],
+#         copts = [
+#             "-Wno-unused-variable",
+#             "-Wno-missing-braces"
+#         ],
+#         deps = [":zenoh-c"],
+#         timeout = "short"
+#     )
+#     for name in [
+#         "z_api_config_test",
+#         "z_api_constants",
+#         "z_api_double_drop_test",
+#         "z_api_drop_options",
+#         "z_api_encoding_test",
+#         "z_api_keyexpr_drop_test",
+#         "z_api_keyexpr_test",
+#         "z_api_liveliness",
+#         "z_api_null_drop_test",
+#         "z_api_payload_test",
+#         "z_api_session_test",
+#         "z_api_shm_test",
+#         "z_api_unitinialized_check",
+#     ]
+# ]
