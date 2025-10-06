@@ -95,7 +95,7 @@ fn produce_opaque_types_data() -> PathBuf {
         feature_args.push(feature);
     }
 
-    let _ = std::process::Command::new("cargo")
+    let _ = std::process::Command::new(std::env::var("CARGO").unwrap())
         .arg("build")
         .args(feature_args)
         .args(linker_args)
