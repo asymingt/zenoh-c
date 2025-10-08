@@ -108,6 +108,31 @@ cmake(
     ]
 ]
 
+# The build tests really only check for the preprocessor directive ZENOHC_DYN_LIB,
+# and so -- even though we can control the linking -- the tests don't detect it.
+
+cc_test(
+    name = "z_build_static",
+    srcs = ["tests/z_build_static.c"],
+    copts = ["-Wno-unused-variable", "-Wno-missing-braces"],
+    deps = [":zenoh-c"],
+    linkstatic = True,
+    timeout = "short",
+    tags = ["requires-network", "exclusive"],
+)
+
+
+cc_test(
+    name = "z_build_shared",
+    srcs = ["tests/z_build_shared.c"],
+    copts = ["-Wno-unused-variable", "-Wno-missing-braces"],
+    deps = [":zenoh-c"],
+    timeout = "short",
+    linkstatic = False,
+    local_defines = ["ZENOHC_DYN_LIB"],
+    tags = ["requires-network", "exclusive"],
+)
+
 # Integration tests must be run exclusively to prevent destructive interference
 
 [
