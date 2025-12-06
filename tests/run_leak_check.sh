@@ -2,11 +2,6 @@
 set -e
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-# If we're in a docker container lower the ulimit to avoid a valgrind error.
-if [ -f /.dockerenv ]; then
-  ulimit -n 200000
-fi
-
 function check_leaks {
   echo "Checking $1 for memory leaks"
   valgrind --leak-check=full --num-callers=50 --log-file="$1.leaks.log" $1
