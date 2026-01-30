@@ -18,47 +18,10 @@ load(":tools.bzl", "rust_library_with_log")
 
 package(default_visibility = ["//visibility:public"])
 
-rust_library(
-    name = "opaque-types",
-    srcs = ["src/lib.rs"],
-    crate_features = [
-        "panic",
-        "shared-memory",
-        "unstable",
-        "auth_pubkey",
-        "auth_usrpwd",
-        "transport_multilink",
-        "transport_compression",
-        "transport_quic",
-        "transport_serial",
-        "transport_unixpipe",
-        "transport_tcp",
-        "transport_tls",
-        "transport_udp",
-        "transport_unixsock",
-        "transport_ws",
-        "transport_vsock",
-    ],
-    deps = all_crate_deps(normal = True),
-    proc_macro_deps = all_crate_deps(proc_macro = True),
-)
+exports_files(["src/lib.rs"])
 
-# filegroup(
-#     name = "compile_output",
-#     srcs = [":opaque-types"],
-#     output_group = "rustc_output",
-# )
-
-# rust_test(
-#     name = "opaque-types-test",
-#     srcs = ["src/lib.rs"],
-#     tags = ["no-sandbox"], 
-#     deps = [
-#         ":opaque-types",
-#         "@crates_zenoh_c//:trybuild",
-#     ],
-# )
-
+# This is roughly a rust_library rule that expects a fail and writes
+# rustc stderr to a file given by the 'outfile' argument.
 rust_library_with_log(
     name = "opaque_types",
     srcs = ["src/lib.rs"],
@@ -81,5 +44,5 @@ rust_library_with_log(
         "transport_vsock",
     ],
     deps = all_crate_deps(normal = True),
-    outfile = ":build_resources_opaque_types.txt",
+    outfile = "build_resources_opaque_types.txt",
 )

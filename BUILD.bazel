@@ -13,26 +13,107 @@
 # limitations under the License.
 
 load("@crates_zenoh_c//:defs.bzl", "aliases", "all_crate_deps")
-load("@rules_rust//rust:defs.bzl", "rust_shared_library")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_shared_library")
 load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
+load(":cbindgen.bzl", "rust_cbindgen_library")
 
 package(default_visibility = ["//visibility:public"])
 
-# cargo_build_script(
-#     name = "build_resources_build_script",
-#     srcs = ["build.rs"],
-#     deps = all_crate_deps(build = True),
-#     proc_macro_deps = all_crate_deps(proc_macro = True),
-# )
+# Transform the opaque types from a .txt to a .rs file.
 
-# rust_shared_library(
-#     name = "zenoh_backend_fs",
-#     srcs = glob(["src/**/*.rs"]),
-#     deps = all_crate_deps(normal = True) + [":build_script"],
-#     proc_macro_deps = all_crate_deps(proc_macro = True),
-#     crate_features = [
-#         "dynamic_plugin",
-#     ],
-# )
+rust_binary(
+    name = "bazel_generate_opaque_types",
+    srcs = ["bazel_generate_opaque_types.rs"],
+    edition = "2021",
+    deps = ["@crates_zenoh_c//:regex"],
+)
 
+genrule(
+    name = "generate_opaque_types",
+    srcs = [
+        "//build-resources/opaque-types:src/lib.rs",
+        "//build-resources/opaque-types:opaque_types",
+    ],
+    outs = ["src/opaque_types/mod.rs"],
+    tools = [":bazel_generate_opaque_types"],
+    cmd = "$(location :bazel_generate_opaque_types) $(SRCS) $@",
+)
+
+# Generate the rust library
+
+rust_shared_library(
+    name = "zenoh-c-lib",
+    srcs = glob(["src/**/*.rs"], exclude=["src/opaque_types/mod.rs"]) + [
+        ":generate_opaque_types"
+    ],
+    crate_features = [
+        "auth_pubkey",
+        "auth_usrpwd",
+        "shared-memory",
+        "unstable",
+        "transport_compression",
+        "transport_multilink",
+        "transport_quic",
+        "transport_tcp",
+        "transport_tls",
+        "transport_udp",
+        "transport_unixsock-stream",
+        "transport_ws",
+    ],
+    deps = all_crate_deps(package_name = "zenoh-c", normal = True),
+    proc_macro_deps = all_crate_deps(package_name = "zenoh-c", proc_macro = True),
+)
+
+# Run cbindgen
+
+rust_cbindgen_library(
+    name = "zenoh-c-cbindgen",
+    lang = "c",
+    lib = ":zenoh-c-lib",
+    header_name = "include/zenoh-gen-buggy.h",
+    config = "cbindgen.toml",
+)
+
+# Run code to generate the c headers from the cbdingen result
+
+rust_binary(
+    name = "bazel_generate_c_headers",
+    srcs = ["bazel_generate_c_headers.rs"],
+    edition = "2021",
+    deps = ["@crates_zenoh_c//:regex"],
+)
+
+genrule(
+    name = "generate_c_headers",
+    srcs = [
+        ":zenoh-c-cbindgen",
+        "splitguide.yaml",
+        "version.txt",        
+    ],
+    outs = [
+        "include/zenoh_commons.h",
+        "include/zenoh_concrete.h",
+        "include/zenoh_configure.h",
+        "include/zenoh_macros.h",
+        "include/zenoh_opaque.h",
+    ],
+    tools = [":bazel_generate_c_headers"],
+    cmd = "$(location :bazel_generate_opaque_types) $(RULEDIR) $(SRCS)",
+)
+
+# Package up the rust library and c headers as a cc_library
+
+cc_library(
+    name = "zenoh-c",
+    srcs = [":zenoh-c-lib"],
+    hdrs = [
+        "include/zenoh_constants.h",
+        "include/zenoh_memory.h",
+        "include/zenoh.h",
+        ":generate_c_headers"
+    ],
+    defines = ["ZENOHC_DYN_LIB"],
+    includes = ["include"],
+)
 
