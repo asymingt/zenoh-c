@@ -1,10 +1,10 @@
-# Copyright 2019 The Bazel Authors. All rights reserved.
+# Copyright 2026 Open Source Robotics Foundation, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,7 @@
 # Adapted from https://github.com/bazelbuild/rules_rust/pull/392
 
 load("@rules_rust//rust:rust_common.bzl", "CrateInfo", "DepInfo")
-load("@rules_rust//cargo:cargo_manifest.bzl", "CargoManifestInfo", "cargo_manifest_aspect")
+load(":cargo_manifest.bzl", "CargoManifestInfo", "cargo_manifest_aspect")
 
 _rust_cbindgen_library_doc = """\
 Generate C/C++ bindings to Rust code from `rust_library` targets
@@ -65,18 +65,23 @@ def _rust_cbindgen_library_impl(ctx):
         (list) a list of Providers
     """
 
-    # Ensure the target lib is compatible with this rule.
     rust_lib = ctx.attr.lib
-    supported_crate_types = ["cdylib", "staticlib"]
-    if not rust_lib[CrateInfo].type in supported_crate_types:
-        fail("Rust library '{}' of type '{}' must be one of {}".format(
-            rust_lib.label,
-            rust_lib[CrateInfo].type,
-            supported_crate_types,
-        ))
+    
+    # Check if we have CrateInfo (rust_library) or just DepInfo (rust_shared_library/rust_static_library)
+    has_crate_info = CrateInfo in rust_lib
+    
+    # If we have CrateInfo, validate crate type
+    if has_crate_info:
+        supported_crate_types = ["cdylib", "staticlib"]
+        if not rust_lib[CrateInfo].type in supported_crate_types:
+            fail("Rust library '{}' of type '{}' must be one of {}".format(
+                rust_lib.label,
+                rust_lib[CrateInfo].type,
+                supported_crate_types,
+            ))
 
     # Determine the location of the cbindgen executable
-    toolchain = ctx.toolchains["@io_bazel_rules_rust//cbindgen:cbindgen_toolchain"]
+    toolchain = ctx.toolchains["//cbindgen:cbindgen_toolchain"]
     cbindgen_bin = toolchain.cbindgen
 
     # Optionally use the user defined template if one is provided
@@ -122,35 +127,46 @@ def _rust_cbindgen_library_impl(ctx):
     args.add(output_header)
     args.add(rust_lib[CargoManifestInfo].toml.dirname)
 
+    # Build inputs - handle both CrateInfo and DepInfo cases
+    if has_crate_info:
+        # Traditional case with rust_library
+        input_srcs = rust_lib[CrateInfo].srcs
+        dep_srcs = [
+            depset(dep[CrateInfo].srcs)
+            for dep in rust_lib[CrateInfo].deps
+            if CrateInfo in dep
+        ]
+    else:
+        # For rust_shared_library/rust_static_library, get sources from the aspect
+        input_srcs = []
+        dep_srcs = []
+
     inputs = depset(
-        rust_lib[CrateInfo].srcs + [ctx.outputs.config],
+        input_srcs + [ctx.outputs.config],
         transitive = [
             rust_lib[OutputGroupInfo].all_files,
-            depset(transitive = [
-                depset(dep[CrateInfo].srcs)
-                for dep in rust_lib[CrateInfo].deps
-            ]),
+            depset(transitive = dep_srcs),
         ],
     )
 
-    rust_toolchain = ctx.toolchains["@io_bazel_rules_rust//rust:toolchain"]
+    rust_toolchain = ctx.toolchains["@rules_rust//rust:toolchain"]
+    
+    # In newer rules_rust, exec_triple and target_triple are structs
+    # with a .str field containing the actual triple string
+    exec_triple = rust_toolchain.exec_triple.str if hasattr(rust_toolchain.exec_triple, 'str') else str(rust_toolchain.exec_triple)
+    target_triple = rust_toolchain.target_triple.str if hasattr(rust_toolchain.target_triple, 'str') else str(rust_toolchain.target_triple)
+    
     env = {
         "CARGO": rust_toolchain.cargo.path,
-        "HOST": rust_toolchain.exec_triple,
+        "HOST": exec_triple,
         "RUSTC": rust_toolchain.rustc.path,
-        "TARGET": rust_toolchain.target_triple,
+        "TARGET": target_triple,
     }
 
-    tools = depset(
-        [
-            rust_toolchain.cargo,
-            rust_toolchain.rustc,
-        ],
-        transitive = [
-            rust_toolchain.rustc_lib.files,
-            rust_toolchain.rust_lib.files,
-        ],
-    )
+    # Use all_files from the toolchain which contains all necessary files
+    # This is more reliable than trying to access individual components
+    # which may have different APIs across rules_rust versions
+    tools = rust_toolchain.all_files
 
     ctx.actions.run(
         mnemonic = "RustCbindgen",
@@ -181,9 +197,7 @@ def _rust_cbindgen_library_impl(ctx):
 
     # Return all providers given by `cc_library` and `rust_library` to ensure
     # compatiblity with other rules
-    return [
-        rust_lib[CrateInfo],
-        rust_lib[DepInfo],
+    providers = [
         CcInfo(
             compilation_context = compilation_context,
             linking_context = rust_lib[CcInfo].linking_context,
@@ -193,6 +207,14 @@ def _rust_cbindgen_library_impl(ctx):
             runfiles = ctx.runfiles([output_header], transitive_files = rust_lib.files),
         ),
     ]
+    
+    # Only include CrateInfo and DepInfo if they exist
+    if has_crate_info:
+        providers.append(rust_lib[CrateInfo])
+    if DepInfo in rust_lib:
+        providers.append(rust_lib[DepInfo])
+    
+    return providers
 
 rust_cbindgen_library = rule(
     implementation = _rust_cbindgen_library_impl,
@@ -204,7 +226,7 @@ rust_cbindgen_library = rule(
                 "The `crate_type` of the target passed here must be " +
                 "either `cdylib` or `staticlib`."
             ),
-            providers = [CrateInfo, CcInfo],
+            providers = [CcInfo],  # Support both rust_library (CrateInfo) and rust_shared_library (DepInfo)
             aspects = [cargo_manifest_aspect],
             mandatory = True,
         ),
@@ -247,7 +269,7 @@ rust_cbindgen_library = rule(
         "config": "%{name}.cbindgen.toml",
     },
     toolchains = [
-        "@io_bazel_rules_rust//cbindgen:cbindgen_toolchain",
-        "@io_bazel_rules_rust//rust:toolchain",
+        "//cbindgen:cbindgen_toolchain",
+        "@rules_rust//rust:toolchain",
     ],
 )

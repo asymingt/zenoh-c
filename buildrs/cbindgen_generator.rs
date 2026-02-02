@@ -36,18 +36,18 @@ static RUST_TO_C_FEATURES: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 pub fn generate_c_headers() {
-    let crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let config = cbindgen::Config::from_root_or_default(crate_dir.clone());
-    cbindgen::Builder::new()
-        .with_config(config)
-        .with_crate(crate_dir)
-        .with_src(get_out_rs_path().join("./opaque_types.rs"))
-        .generate()
-        .expect("Unable to generate bindings")
-        .write_to_file(BUGGY_GENERATION_PATH);
+    // let crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    // let config = cbindgen::Config::from_root_or_default(crate_dir.clone());
+    // cbindgen::Builder::new()
+    //     .with_config(config)
+    //     .with_crate(crate_dir)
+    //     .with_src(get_out_rs_path().join("./opaque_types.rs"))
+    //     .generate()
+    //     .expect("Unable to generate bindings")
+    //     .write_to_file(BUGGY_GENERATION_PATH);
 
     fix_cbindgen(BUGGY_GENERATION_PATH, GENERATION_PATH);
-    std::fs::remove_file(BUGGY_GENERATION_PATH).unwrap();
+    // std::fs::remove_file(BUGGY_GENERATION_PATH).unwrap();
 
     preprocess_header(GENERATION_PATH, PREPROCESS_PATH);
     create_generics_header(PREPROCESS_PATH, "include/zenoh_macros.h");

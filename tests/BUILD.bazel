@@ -12,37 +12,110 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_cc//cc:defs.bzl", "cc_binary",  "cc_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
-TEST_SRCS = glob(
-    ["*.c"],
-    exclude = [
-        "z_api_alignment_test.c",
-        "z_api_shm_test.c",
-        "z_build_static.c",
-    ],
+package(default_visibility = ["//visibility:public"])
+
+[
+    cc_test(
+        name = name,
+        srcs = [name + ".c"],
+        copts = ["-Wno-unused-variable", "-Wno-missing-braces"],
+        deps = ["//:zenoh-c"],
+        timeout = "short",
+        tags = ["requires-network"],
+    )
+    for name in [
+        "z_api_config_test",
+        "z_api_constants",
+        "z_api_double_drop_test",
+        "z_api_drop_options",
+        "z_api_encoding_test",
+        "z_api_keyexpr_drop_test",
+        "z_api_keyexpr_test",
+        "z_api_liveliness",
+        "z_api_null_drop_test",
+        "z_api_payload_test",
+        "z_api_session_test",
+        "z_api_unitinialized_check",
+    ]
+]
+
+cc_test(
+    name = "z_build_static",
+    srcs = ["z_build_static.c"],
+    copts = ["-Wno-unused-variable", "-Wno-missing-braces"],
+    deps = ["//:zenoh-c"],
+    linkstatic = True,
+    timeout = "short",
+    tags = ["requires-network", "exclusive"],
 )
 
-TEST_NAMES = [src.replace(".c", "") for src in TEST_SRCS]
 
-[cc_test(
-    name = test_name,
-    size = "small",
-    srcs = [
-        test_name + ".c",
-        "z_int_helpers.h",
-    ],
-    linkopts = select({
-        "@platforms//os:linux": [
-            "-lrt",
-            "-lpthread",
-        ],
-        "//conditions:default": [],
-    }),
-    deps = ["@zenohc"],
-    tags = ["exclusive"] if test_name in [
-        "z_int_pub_cache_query_sub_test",
+cc_test(
+    name = "z_build_shared",
+    srcs = ["z_build_shared.c"],
+    copts = ["-Wno-unused-variable", "-Wno-missing-braces"],
+    deps = ["//:zenoh-c"],
+    timeout = "short",
+    linkstatic = False,
+    local_defines = ["ZENOHC_DYN_LIB"],
+    tags = ["requires-network", "exclusive"],
+)
+
+[
+    cc_test(
+        name = name,
+        srcs = ["z_int_helpers.h", name + ".c"],
+        copts = ["-Wno-unused-variable", "-Wno-missing-braces"],
+        deps = ["//:zenoh-c"],
+        timeout = "short",
+        tags = ["requires-network", "exclusive"],
+    )
+    for name in [
+        "z_int_helpers_test",
+        "z_int_pub_sub_attachment_test",
         "z_int_pub_sub_test",
+        "z_int_queryable_attachment_test",
         "z_int_queryable_test",
-    ] else [],
-) for test_name in TEST_NAMES]
+        "z_int_advanced_pub_sub_test",
+        "z_int_pub_cache_query_sub_test",
+    ]
+]
+
+# Leak test : z_leak_pub_sub_test (require valgrind)
+
+cc_binary(
+    name = "z_leak_pub_sub_test_impl",
+    srcs = ["z_leak_pub_sub_test.c"],
+    copts = ["-Wno-unused-variable", "-Wno-missing-braces"],
+    deps = ["//:zenoh-c"],
+)
+
+sh_test(
+    name = "z_leak_pub_sub_test",
+    srcs = ["run_leak_check.sh"],
+    args = ["$(location :z_leak_pub_sub_test_impl)"],
+    data = [":z_leak_pub_sub_test_impl"],
+    timeout = "short",
+    tags = ["requires-network", "exclusive"],
+)
+
+# Leak test : z_leak_queryable_get_test (require valgrind)
+
+cc_binary(
+    name = "z_leak_queryable_get_test_impl",
+    srcs = ["z_leak_queryable_get_test.c"],
+    copts = ["-Wno-unused-variable", "-Wno-missing-braces"],
+    deps = ["//:zenoh-c"],
+)
+
+sh_test(
+    name = "z_leak_queryable_get_test",
+    srcs = ["run_leak_check.sh"],
+    args = ["$(location :z_leak_queryable_get_test_impl)"],
+    data = [":z_leak_queryable_get_test_impl"],
+    timeout = "short",
+    tags = ["requires-network", "exclusive"],
+)

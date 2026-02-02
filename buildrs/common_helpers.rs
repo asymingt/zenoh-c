@@ -32,20 +32,22 @@ pub fn test_feature(feature: &str) -> bool {
 pub fn cargo_target_dir() -> PathBuf {
     // OUT_DIR is a path to the directory where the build script writes its output.
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR should be set"));
-    // PROFILE is the profile that the build script is being run for. This will be one of "debug" or "release".
-    let profile = env::var("PROFILE").expect("PROFILE should be set");
+    out_dir.to_path_buf()
 
-    let mut target_dir = None;
-    let mut out_dir_path = out_dir.as_path();
-    while let Some(parent) = out_dir_path.parent() {
-        if parent.ends_with(&profile) {
-            target_dir = Some(parent);
-            break;
-        }
-        out_dir_path = parent;
-    }
+    // // PROFILE is the profile that the build script is being run for. This will be one of "debug" or "release".
+    // let profile = env::var("PROFILE").expect("PROFILE should be set");
 
-    target_dir
-        .expect("OUT_DIR should be a child of a PROFILE directory")
-        .to_path_buf()
+    // let mut target_dir = None;
+    // let mut out_dir_path = out_dir.as_path();
+    // while let Some(parent) = out_dir_path.parent() {
+    //     if parent.ends_with(&profile) {
+    //         target_dir = Some(parent);
+    //         break;
+    //     }
+    //     out_dir_path = parent;
+    // }
+
+    // target_dir
+    //     .expect("OUT_DIR should be a child of a PROFILE directory")
+    //     .to_path_buf()
 }

@@ -14,9 +14,9 @@
 
 load("@crates_zenoh_c//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_shared_library")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_static_library", "rust_shared_library", "rust_library")
 load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
-load(":cbindgen.bzl", "rust_cbindgen_library")
+load("//cbindgen:cbindgen.bzl", "rust_cbindgen_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -40,10 +40,10 @@ genrule(
     cmd = "$(location :bazel_generate_opaque_types) $(SRCS) $@",
 )
 
-# Generate the rust library
+# Generate the rust library (name must match the [lib] in Cargo.toml)
 
 rust_shared_library(
-    name = "zenoh-c-lib",
+    name = "zenohc",
     srcs = glob(["src/**/*.rs"], exclude=["src/opaque_types/mod.rs"]) + [
         ":generate_opaque_types"
     ],
@@ -55,65 +55,141 @@ rust_shared_library(
         "transport_compression",
         "transport_multilink",
         "transport_quic",
+        "transport_serial",
         "transport_tcp",
         "transport_tls",
         "transport_udp",
         "transport_unixsock-stream",
         "transport_ws",
+        "transport_vsock",
     ],
-    deps = all_crate_deps(package_name = "zenoh-c", normal = True),
-    proc_macro_deps = all_crate_deps(package_name = "zenoh-c", proc_macro = True),
+    deps = all_crate_deps(
+        package_name = "zenoh-c", normal = True),
+    proc_macro_deps = all_crate_deps(
+        package_name = "zenoh-c", proc_macro = True),
 )
 
 # Run cbindgen
 
 rust_cbindgen_library(
-    name = "zenoh-c-cbindgen",
+    name = "zenohc-cbindgen",
     lang = "c",
-    lib = ":zenoh-c-lib",
+    lib = ":zenohc",
     header_name = "include/zenoh-gen-buggy.h",
     config = "cbindgen.toml",
 )
 
 # Run code to generate the c headers from the cbdingen result
 
-rust_binary(
-    name = "bazel_generate_c_headers",
-    srcs = ["bazel_generate_c_headers.rs"],
-    edition = "2021",
-    deps = ["@crates_zenoh_c//:regex"],
+# rust_binary(
+#     name = "bazel_patch_c_headers",
+#     srcs = ["bazel_patch_c_headers.rs"],
+#     edition = "2021",
+#     deps = all_crate_deps(
+#         package_name = "zenoh-c", normal = True),
+#     proc_macro_deps = all_crate_deps(
+#         package_name = "zenoh-c", proc_macro = True),,
+# )
+
+# genrule(
+#     name = "generate_c_headers",
+#     srcs = [
+#         ":zenohc-cbindgen",
+#         "splitguide.yaml",
+#         "version.txt",        
+#     ],
+#     outs = [
+#         "include/zenoh_commons.h",
+#         "include/zenoh_concrete.h",
+#         "include/zenoh_configure.h",
+#         "include/zenoh_macros.h",
+#         "include/zenoh_opaque.h",
+#     ],
+#     tools = [":bazel_patch_c_headers"],
+#     cmd = "$(location :bazel_patch_c_headers) $(RULEDIR) $(SRCS)",
+# )
+
+cargo_build_script(
+    name = "build_script",
+    srcs = glob([
+        "build.rs",
+        "buildrs/**",
+    ]),
+    data = [":zenohc-cbindgen"] + glob([
+        "cbindgen.toml",
+        "Cargo.toml",
+        "include/zenoh.h",
+        "include/zenoh_memory.h",
+        "include/zenoh_constants.h",
+        "splitguide.yaml",
+        "version.txt",
+        "src/**",
+    ]),
+    crate_features = [
+        "auth_pubkey",
+        "auth_usrpwd",
+        "shared-memory",
+        "unstable",
+        "transport_compression",
+        "transport_multilink",
+        "transport_quic",
+        "transport_serial",
+        "transport_tcp",
+        "transport_tls",
+        "transport_udp",
+        "transport_unixsock-stream",
+        "transport_ws",
+        "transport_vsock",
+    ],
+    crate_root = "build.rs",
+    build_script_env = {
+        "BUGGY_GENERATION_PATH" : "$(locations :zenohc-cbindgen)",
+        "OUT_DIR": "."
+    },
+    deps = all_crate_deps(
+        package_name = "zenoh-c", build = True),
+    proc_macro_deps = all_crate_deps(
+        package_name = "zenoh-c", proc_macro = True),
 )
 
-genrule(
-    name = "generate_c_headers",
-    srcs = [
-        ":zenoh-c-cbindgen",
-        "splitguide.yaml",
-        "version.txt",        
-    ],
-    outs = [
+filegroup(
+    name = "output_dir",
+    output_group = "out_dir",
+    srcs = [":build_script"],
+)
+
+[
+    genrule(
+        name = "extract_{}".format(file.replace("/", "_").replace(".", "_")),
+        srcs = [":output_dir"],
+        outs = [file],
+        cmd = "cp $(location :output_dir)/{} $@".format(file),
+    )
+    for file in [
+        "include/zenoh_commons.h",
+        "include/zenoh_concrete.h",
+        "include/zenoh_configure.h",
+        "include/zenoh_macros.h",
+        "include/zenoh_opaque.h",
+    ]
+]
+
+
+# Package up the rust library and c headers as a cc_library
+
+cc_library(
+    name = "zenoh-c",
+    srcs = [":zenohc"],
+    hdrs = [
+        "include/zenoh_constants.h",
+        "include/zenoh_memory.h",
+        "include/zenoh.h",
         "include/zenoh_commons.h",
         "include/zenoh_concrete.h",
         "include/zenoh_configure.h",
         "include/zenoh_macros.h",
         "include/zenoh_opaque.h",
     ],
-    tools = [":bazel_generate_c_headers"],
-    cmd = "$(location :bazel_generate_opaque_types) $(RULEDIR) $(SRCS)",
-)
-
-# Package up the rust library and c headers as a cc_library
-
-cc_library(
-    name = "zenoh-c",
-    srcs = [":zenoh-c-lib"],
-    hdrs = [
-        "include/zenoh_constants.h",
-        "include/zenoh_memory.h",
-        "include/zenoh.h",
-        ":generate_c_headers"
-    ],
-    defines = ["ZENOHC_DYN_LIB"],
+    local_defines = ["ZENOHC_DYN_LIB"],
     includes = ["include"],
 )
-

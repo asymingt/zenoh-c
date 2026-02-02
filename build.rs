@@ -41,12 +41,12 @@ pub fn dump_rust_sources(out_path: &std::path::Path) {
 }
 
 fn main() {
-    buildrs::opaque_types_generator::generate_opaque_types();
+    // buildrs::opaque_types_generator::generate_opaque_types();
     buildrs::cbindgen_generator::generate_c_headers();
-    if let Some(out_path) = env::var_os("ZENOHC_DUMP_SRC_DIR") {
-        let out_path = std::path::Path::new(&out_path);
-        dump_rust_sources(out_path);
-    }
+    // if let Some(out_path) = env::var_os("ZENOHC_DUMP_SRC_DIR") {
+    //     let out_path = std::path::Path::new(&out_path);
+    //     dump_rust_sources(out_path);
+    // }
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=buildrs");
     println!("cargo:rerun-if-changed=src");
