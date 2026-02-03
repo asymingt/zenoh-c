@@ -63,10 +63,9 @@ rust_shared_library(
         "transport_ws",
         "transport_vsock",
     ],
-    deps = all_crate_deps(
-        package_name = "zenoh-c", normal = True),
-    proc_macro_deps = all_crate_deps(
-        package_name = "zenoh-c", proc_macro = True),
+    rustc_flags = ["-A", "dead_code", "-A", "unused_imports"],
+    deps = all_crate_deps(normal = True),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
 )
 
 # Run cbindgen
@@ -80,34 +79,6 @@ rust_cbindgen_library(
 )
 
 # Run code to generate the c headers from the cbdingen result
-
-# rust_binary(
-#     name = "bazel_patch_c_headers",
-#     srcs = ["bazel_patch_c_headers.rs"],
-#     edition = "2021",
-#     deps = all_crate_deps(
-#         package_name = "zenoh-c", normal = True),
-#     proc_macro_deps = all_crate_deps(
-#         package_name = "zenoh-c", proc_macro = True),,
-# )
-
-# genrule(
-#     name = "generate_c_headers",
-#     srcs = [
-#         ":zenohc-cbindgen",
-#         "splitguide.yaml",
-#         "version.txt",        
-#     ],
-#     outs = [
-#         "include/zenoh_commons.h",
-#         "include/zenoh_concrete.h",
-#         "include/zenoh_configure.h",
-#         "include/zenoh_macros.h",
-#         "include/zenoh_opaque.h",
-#     ],
-#     tools = [":bazel_patch_c_headers"],
-#     cmd = "$(location :bazel_patch_c_headers) $(RULEDIR) $(SRCS)",
-# )
 
 cargo_build_script(
     name = "build_script",
@@ -146,10 +117,8 @@ cargo_build_script(
         "BUGGY_GENERATION_PATH" : "$(locations :zenohc-cbindgen)",
         "OUT_DIR": "."
     },
-    deps = all_crate_deps(
-        package_name = "zenoh-c", build = True),
-    proc_macro_deps = all_crate_deps(
-        package_name = "zenoh-c", proc_macro = True),
+    deps = all_crate_deps(build = True),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
 )
 
 filegroup(

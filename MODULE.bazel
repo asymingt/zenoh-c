@@ -21,26 +21,24 @@ bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_rust", version = "0.68.1")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 
-# Modules form the crates_universe.
-
-crate = use_extension(
-    "@rules_rust//crate_universe:extension.bzl",
-    "crate",
+# Declare the two separate crates that will be used in this project.
+crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+crate.from_cargo(
+    name = "crates_opaque_types",
+    cargo_lockfile = "//build-resources/opaque-types:Cargo.lock",
+    manifests = ["//build-resources/opaque-types:Cargo.toml"],
 )
 crate.from_cargo(
     name = "crates_zenoh_c",
     cargo_lockfile = "//:Cargo.lock",
-    manifests = [
-        "//build-resources/opaque-types:Cargo.toml",
-        "//:Cargo.toml",
-    ],
+    manifests = ["//:Cargo.toml"],
 )
 crate.annotation(
+    repositories = ["crates_zenoh_c"],
     crate = "cbindgen",
     gen_binaries = ["cbindgen"]
 )
-use_repo(crate, "crates_zenoh_c")
+use_repo(crate, "crates_opaque_types", "crates_zenoh_c")
 
 # Register cbindgen toolchain (for generating C headers from Rust code)
-
 register_toolchains("@zenoh-c//cbindgen:default_cbindgen_toolchain")

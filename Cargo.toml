@@ -47,6 +47,10 @@ transport_unixsock-stream = ["zenoh/transport_unixsock-stream"]
 transport_ws = ["zenoh/transport_ws"]
 transport_vsock = ["zenoh/transport_vsock"]
 stats = ["zenoh/stats"]
+
+# Bazel: we have to explicitly list these here, as this is the source of truth for the
+# crates universe extension. In other words, the crates_features argument to the
+# cargo_build_script or rust_library rules cannot update the dependency configuration.
 default = [
     "shared-memory",
     "unstable",

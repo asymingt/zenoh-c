@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@crates_zenoh_c//:defs.bzl", "aliases", "all_crate_deps")
+load("@crates_opaque_types//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
 load(":tools.bzl", "rust_library_with_log")
 
@@ -22,6 +22,9 @@ exports_files(["src/lib.rs"])
 
 # This is roughly a rust_library rule that expects a fail and writes
 # rustc stderr to a file given by the 'outfile' argument.
+# NOTE: crate_features is only for local #[cfg(feature = "foo")]
+#       directives. You must also update the default value in the
+#       [features] block of Cargo.toml to add them to the universe.
 rust_library_with_log(
     name = "opaque_types",
     srcs = ["src/lib.rs"],
@@ -39,7 +42,7 @@ rust_library_with_log(
         "transport_tcp",
         "transport_tls",
         "transport_udp",
-        "transport_unixsock",
+        "transport_unixsock-stream",
         "transport_ws",
         "transport_vsock",
     ],
